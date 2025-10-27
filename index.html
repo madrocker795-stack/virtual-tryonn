@@ -271,6 +271,7 @@
                         <!-- model-viewer component --><model-viewer
                             id="product-model"
                             src="" 
+                            ios-src=""  
                             poster="https://placehold.co/400x400/1F2937/F9FAFB?text=Loading+3D+Model"
                             alt="A 3D model of a fashion product."
                             shadow-intensity="1"
@@ -279,6 +280,8 @@
                             auto-rotate
                             ar
                             ar-modes="webxr scene-viewer quick-look"
+                            ar-placement="floor"  <!-- Added for better Android AR functionality -->
+                            ar-scale="auto"     <!-- Added for better real-world sizing -->
                             class="rounded-lg"
                         >
                             <button slot="ar-button" id="ar-button" class="font-body">
@@ -332,6 +335,7 @@
                 description: "The perfect everyday T-shirt. Made from 100% premium ring-spun cotton for softness and durability. Its classic fit makes it ideal for layering or wearing on its own.",
                 features: ["Responsive AR Visualization", "Full Rotational View", "100% Premium Cotton", "Classic Crew Neck Fit"],
                 modelUrl: 'https://raw.githubusercontent.com/madrocker795-stack/3dmodels/d7f5e28687c05ecbe77a5f7b535e088c3c826ad0/standard_t_shirt.glb',
+                modelUsdzUrl: 'https://raw.githubusercontent.com/madrocker795-stack/3dmodels/d7f5e28687c05ecbe77a5f7b535e088c3c826ad0/standard_t_shirt.usdz', // Added USDZ link
                 imageUrl: 'https://placehold.co/400x400/9CA3AF/1F2937?text=Men\'s+T-Shirt+View' // Placeholder image for card
             },
             {
@@ -343,6 +347,7 @@
                 description: "A high-fidelity 3D model of a modern casual outfit, perfect for virtual try-on and detailed inspection. Features realistic fabric simulation and complex layering.",
                 features: ["WebXR AR Functionality", "Zoom & Pan Controls", "Premium Digital Assets", "Realistic Fabric Texture"],
                 modelUrl: 'https://raw.githubusercontent.com/madrocker795-stack/3dmodels/baacb8d33e8750e7d84c0009231fdefcb955acfa/free_download_marvelous_designer_casual_outfit.glb',
+                modelUsdzUrl: 'https://raw.githubusercontent.com/madrocker795-stack/3dmodels/baacb8d33e8750e7d84c0009231fdefcb955acfa/free_download_marvelous_designer_casual_outfit.usdz', // Added USDZ link
                 imageUrl: 'https://placehold.co/400x400/991B1B/FCA5A5?text=Women\'s+Casual+Outfit' // Placeholder image for card
             }
         ];
@@ -416,6 +421,9 @@
             
             // 1. Update the 3D Model Viewer
             productModel.src = product.modelUrl;
+            // Set the iOS-specific USDZ source for Quick Look AR (still needed for cross-browser AR modes)
+            productModel.setAttribute('ios-src', product.modelUsdzUrl);
+            
             productModel.alt = `A 3D model of the ${product.name}.`;
             productModel.poster = product.imageUrl;
             
@@ -480,6 +488,7 @@
                  selectedProductId = null;
                  productDetails.innerHTML = `<h1 class="text-3xl font-bold text-gray-900 font-heading">No Products Available</h1><p class="text-gray-500 font-body">Please adjust your gender filter.</p>`;
                  productModel.src = '';
+                 productModel.removeAttribute('ios-src'); // Clear USDZ source
                  addToCartBtn.classList.add('opacity-50', 'cursor-not-allowed');
                  addToCartBtn.disabled = true;
             } else {
