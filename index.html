@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D & AR Product Gallery</title>
+    <!-- Load Google Fonts --><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Load Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'heading': ['"Playfair Display"', 'serif'],
+                        'body': ['Montserrat', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': '#2563EB', /* Blue-600 */
+                        'secondary': '#DC2626', /* Red-600 */
+                        'accent': '#FBBF24', /* Amber-400 */
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Load the Model Viewer component --><script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    <style>
+        /* Base Body Font */
+        body {
+            font-family: var(--font-body);
+        }
+
+        /* Custom styling for the AR button appearance */
+        #ar-button {
+            background-color: var(--secondary);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        #ar-button:hover {
+            background-color: #B91C1C; /* Red-700 */
+        }
+
+        /* Ensure model-viewer takes up a good amount of space */
+        model-viewer {
+            width: 100%;
+            height: 450px;
+            --placement: floor; 
+        }
+
+        /* Responsive height adjustment for smaller screens */
+        @media (min-width: 640px) {
+            model-viewer {
+                height: 550px;
+            }
+        }
+        
+        .filter-button {
+            padding: 0.5rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .filter-button.active {
+            background-color: #FEF3C7; /* Amber-100 */
+            color: #D97706; /* Amber-700 */
+            border-color: #FBBF24; /* Amber-400 */
+        }
+
+        .product-card {
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            background-color: #fff;
+            border: 2px solid transparent;
+        }
+
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .product-card.selected {
+            border-color: #1D4ED8; /* Blue-700 */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- New Styles for Loading/Home Pages --- */
+        #loading-page, #home-page, #main-app-container {
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        #loading-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1F2937; /* Dark Gray */
+            z-index: 50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 2rem;
+            flex-direction: column;
+        }
+
+        .loader {
+            border: 8px solid #374151; /* Dark Gray border */
+            border-top: 8px solid #60A5FA; /* Blue spinning part */
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #home-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 40; /* Below loading page */
+            display: none; /* Initially hidden, controlled by JS */
+            overflow: hidden; /* Hide overflowing moving shapes */
+            /* Enhanced moving background gradient */
+            background: linear-gradient(135deg, #1A1A2E, #16213E, #0F3460, #E94560);
+            background-size: 400% 400%;
+            animation: gradientShift 20s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 0%; }
+            50% { background-position: 100% 100%; }
+            100% { background-position: 0% 0%; }
+        }
+
+        .home-content {
+            position: relative;
+            z-index: 10; /* Ensure content is above moving shapes */
+            background-color: rgba(255, 255, 255, 0.95); /* Slightly less transparent */
+            backdrop-filter: blur(10px); /* More blur */
+            max-width: 600px;
+        }
+
+        /* Moving shapes for background */
+        .shape {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 15s infinite ease-in-out;
+            pointer-events: none; /* Do not interfere with clicks */
+        }
+
+        .shape:nth-child(1) { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
+        .shape:nth-child(2) { width: 120px; height: 120px; left: 80%; top: 40%; animation-delay: 2s; }
+        .shape:nth-child(3) { width: 60px; height: 60px; left: 30%; top: 70%; animation-delay: 4s; }
+        .shape:nth-child(4) { width: 100px; height: 100px; left: 50%; top: 10%; animation-delay: 6s; }
+        .shape:nth-child(5) { width: 90px; height: 90px; left: 5%; top: 85%; animation-delay: 8s; }
+        .shape:nth-child(6) { width: 70px; height: 70px; left: 90%; top: 15%; animation-delay: 10s; }
+
+        @keyframes float {
+            0% { transform: translateY(0px) translateX(0px) rotate(0deg); opacity: 0.7; }
+            25% { transform: translateY(-20px) translateX(10px) rotate(15deg); opacity: 0.8; }
+            50% { transform: translateY(0px) translateX(-5px) rotate(0deg); opacity: 0.6; }
+            75% { transform: translateY(15px) translateX(-10px) rotate(-10deg); opacity: 0.75; }
+            100% { transform: translateY(0px) translateX(0px) rotate(0deg); opacity: 0.7; }
+        }
+
+        /* Ensure main content is hidden initially */
+        #main-app-container {
+            opacity: 0;
+            display: none;
+        }
+
+        /* Animation for heading on home page */
+        .animate-pop-in {
+            animation: popIn 0.8s ease-out forwards;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            70% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Animation for button on home page */
+        .animate-bounce-in {
+            animation: bounceIn 1s ease-out forwards;
+            animation-delay: 0.5s; /* Delay after text */
+            opacity: 0; /* Start hidden */
+        }
+        @keyframes bounceIn {
+            0% { transform: translateY(50px) scale(0.7); opacity: 0; }
+            60% { transform: translateY(-10px) scale(1.1); opacity: 1; }
+            80% { transform: translateY(5px) scale(0.95); opacity: 1; }
+            100% { transform: translateY(0px) scale(1); opacity: 1; }
+        }
+
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-body">
+
+    <!-- 1. LOADING PAGE (Visible by default) --><div id="loading-page">
+        <div class="loader mb-4"></div>
+        <p class="text-lg tracking-wider font-semibold text-gray-300">Summoning Virtual Wardrobe...</p>
+    </div>
+
+    <!-- 2. HOME PAGE (Splash Screen) --><div id="home-page" class="flex justify-center items-center text-center p-8 text-white">
+        <!-- Moving Shapes Background Elements --><div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+
+        <div class="home-content p-10 rounded-xl shadow-2xl space-y-6 mx-4">
+            <h1 class="text-6xl sm:text-7xl font-heading font-extrabold text-primary animate-pop-in">
+                V-Style Canvas
+            </h1>
+            <p class="text-xl text-gray-700 leading-relaxed font-body font-light">
+                Step into the future of fashion. Effortlessly explore our curated collection of 
+                **3D garments** and experience them in your world with cutting-edge 
+                **Augmented Reality**.
+            </p>
+            <p class="text-lg font-medium text-gray-600 font-body">
+                Redefine your shopping journey, one virtual try-on at a time.
+            </p>
+            <button id="start-shopping-btn" class="bg-secondary text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-red-700 transition duration-300 transform hover:scale-[1.05] animate-bounce-in">
+                Explore Our Collection →
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. ACTUAL WEBPAGE (Existing Content - initially hidden) --><div id="main-app-container">
+        <!-- Header Navigation with Cart Counter --><header class="bg-white shadow-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-800 font-heading">V-Style Canvas</h1>
+                <nav class="flex items-center space-x-6">
+                    <a href="#" class="text-gray-600 hover:text-primary transition font-body">Shop</a>
+                    <a href="#" class="text-gray-600 hover:text-primary transition font-body">About</a>
+                    
+                    <!-- Cart Icon and Counter --><div class="relative cursor-pointer hover:text-primary transition">
+                        <!-- Shopping Cart Icon (Simple SVG) --><svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                        <span id="cart-counter" class="absolute -top-2 -right-2 bg-secondary text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full font-body">0</span>
+                    </div>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Product Section --><main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="lg:grid lg:grid-cols-2 lg:gap-12">
+                
+                <!-- 3D Viewer Area and Controls --><div class="lg:sticky lg:top-12">
+                    <!-- 3D Viewer Card --><div class="bg-white rounded-xl shadow-lg p-4 overflow-hidden">
+                        <h2 class="text-xl font-semibold mb-4 text-gray-700 font-body">Interactive 3D View</h2>
+                        
+                        <!-- model-viewer component --><model-viewer
+                            id="product-model"
+                            src="" 
+                            poster="https://placehold.co/400x400/1F2937/F9FAFB?text=Loading+3D+Model"
+                            alt="A 3D model of a fashion product."
+                            shadow-intensity="1"
+                            camera-controls
+                            touch-action="pan-y"
+                            auto-rotate
+                            ar
+                            ar-modes="webxr scene-viewer quick-look"
+                            class="rounded-lg"
+                        >
+                            <button slot="ar-button" id="ar-button" class="font-body">
+                                View in Your Space (AR)
+                            </button>
+                        </model-viewer>
+                        <!-- End of model-viewer --><p class="text-center mt-4 text-sm text-gray-500 font-body">
+                            Drag to rotate, pinch to zoom. AR button available on compatible mobile devices.
+                        </p>
+                    </div>
+
+                    <!-- Gender Filter and Product Selector (Now "Shop By") --><div class="mt-8 bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-800 font-body">Shop by Category</h3>
+                        
+                        <!-- Shop By Filter Buttons --><div id="gender-filter" class="flex space-x-3 mb-6 font-body">
+                            <button class="filter-button bg-gray-200 text-gray-700" data-filter="All">All Items</button>
+                            <button class="filter-button bg-gray-200 text-gray-700 font-bold" data-filter="Men">Shop by Men</button>
+                            <button class="filter-button bg-gray-200 text-gray-700 font-bold" data-filter="Women">Shop by Women</button>
+                        </div>
+
+                        <!-- Product Selector Cards --><div id="product-selector" class="grid grid-cols-2 gap-4">
+                            <!-- Product cards will be injected here by JavaScript --></div>
+                    </div>
+
+                </div>
+
+                <!-- Product Details Area --><div class="mt-10 lg:mt-0">
+                    <div id="product-details" class="bg-white p-8 rounded-xl shadow-lg space-y-6">
+                        <!-- Product details will be injected here by JavaScript --><h1 class="text-3xl font-bold text-gray-900 font-heading">Select a Product</h1>
+                        <p class="text-gray-500 font-body">Please choose a product from the list below to see its interactive 3D model and augmented reality view.</p>
+                    </div>
+
+                    <!-- Action Button --><button id="add-to-cart-btn" class="w-full bg-primary text-white font-bold py-3 mt-6 rounded-lg shadow-lg hover:bg-blue-700 transition duration-300 transform hover:scale-[1.01] opacity-50 cursor-not-allowed font-body" disabled>
+                        Add to Cart
+                    </button>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- PRODUCT DATA (Simulating a database or product.json file) ---
+        const products = [
+            {
+                id: 'tshirt',
+                name: 'Core Standard T-Shirt',
+                gender: 'Men',
+                price: 24.99,
+                originalPrice: 35.00,
+                description: "The perfect everyday T-shirt. Made from 100% premium ring-spun cotton for softness and durability. Its classic fit makes it ideal for layering or wearing on its own.",
+                features: ["Responsive AR Visualization", "Full Rotational View", "100% Premium Cotton", "Classic Crew Neck Fit"],
+                modelUrl: 'https://raw.githubusercontent.com/madrocker795-stack/3dmodels/d7f5e28687c05ecbe77a5f7b535e088c3c826ad0/standard_t_shirt.glb',
+                imageUrl: 'https://placehold.co/400x400/9CA3AF/1F2937?text=Men\'s+T-Shirt+View' // Placeholder image for card
+            },
+            {
+                id: 'casual-outfit',
+                name: 'Marvelous Designer Casual Outfit',
+                gender: 'Women',
+                price: 129.99,
+                originalPrice: 159.99,
+                description: "A high-fidelity 3D model of a modern casual outfit, perfect for virtual try-on and detailed inspection. Features realistic fabric simulation and complex layering.",
+                features: ["WebXR AR Functionality", "Zoom & Pan Controls", "Premium Digital Assets", "Realistic Fabric Texture"],
+                modelUrl: 'https://raw.githubusercontent.com/madrocker795-stack/3dmodels/baacb8d33e8750e7d84c0009231fdefcb955acfa/free_download_marvelous_designer_casual_outfit.glb',
+                imageUrl: 'https://placehold.co/400x400/991B1B/FCA5A5?text=Women\'s+Casual+Outfit' // Placeholder image for card
+            }
+        ];
+
+        // --- GLOBAL STATE ---
+        let selectedGender = 'All';
+        let selectedProductId = null;
+        let cartCount = 0; // State variable for the cart
+
+        // --- DOM REFERENCES ---
+        const productModel = document.getElementById('product-model');
+        const productSelector = document.getElementById('product-selector');
+        const productDetails = document.getElementById('product-details');
+        const filterButtons = document.querySelectorAll('#gender-filter button');
+        const addToCartBtn = document.getElementById('add-to-cart-btn');
+        const cartCounterElement = document.getElementById('cart-counter');
+        
+        // New DOM references for the page flow
+        const loadingPage = document.getElementById('loading-page');
+        const homePage = document.getElementById('home-page');
+        const mainAppContainer = document.getElementById('main-app-container');
+        const startShoppingBtn = document.getElementById('start-shopping-btn');
+        
+        // --- FUNCTIONS ---
+
+        /**
+         * Updates the visible cart count in the header.
+         */
+        function updateCartCount() {
+            cartCounterElement.textContent = cartCount;
+        }
+
+        /**
+         * Renders the product selection cards based on the current gender filter.
+         */
+        function renderProductSelector() {
+            const filteredProducts = products.filter(p => selectedGender === 'All' || p.gender === selectedGender);
+            
+            productSelector.innerHTML = ''; // Clear previous cards
+
+            if (filteredProducts.length === 0) {
+                productSelector.innerHTML = '<p class="col-span-2 text-center text-gray-500">No products found in this category.</p>';
+                return;
+            }
+
+            filteredProducts.forEach(product => {
+                const isSelected = product.id === selectedProductId;
+                const card = document.createElement('div');
+                card.className = `product-card p-3 rounded-lg shadow-md ${isSelected ? 'selected' : 'hover:shadow-lg'}`;
+                card.setAttribute('data-id', product.id);
+                card.innerHTML = `
+                    <img src="${product.imageUrl}" alt="${product.name} thumbnail" class="w-full h-32 object-cover rounded-md mb-2">
+                    <p class="text-sm font-semibold text-gray-800 truncate">${product.name}</p>
+                    <p class="text-xs text-gray-500">${product.gender}</p>
+                    <p class="text-sm font-bold text-primary mt-1">$${product.price.toFixed(2)}</p>
+                `;
+                card.addEventListener('click', () => selectProduct(product.id));
+                productSelector.appendChild(card);
+            });
+        }
+
+        /**
+         * Updates the main product view with the details of the selected product.
+         * @param {string} productId - The ID of the product to display.
+         */
+        function selectProduct(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            selectedProductId = productId;
+            
+            // 1. Update the 3D Model Viewer
+            productModel.src = product.modelUrl;
+            productModel.alt = `A 3D model of the ${product.name}.`;
+            productModel.poster = product.imageUrl;
+            
+            // 2. Update the Product Details Panel
+            const featuresHtml = product.features.map(feature => `
+                <li class="flex items-start">
+                    <svg class="w-5 h-5 text-green-500 flex-shrink-0 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    <span>${feature}</span>
+                </li>
+            `).join('');
+
+            productDetails.innerHTML = `
+                <h1 class="text-4xl font-extrabold text-gray-900 font-heading">${product.name}</h1>
+                <p class="text-sm text-primary font-medium uppercase tracking-wider font-body">${product.gender}'s Collection</p>
+                
+                <div class="flex items-baseline space-x-2">
+                    <span class="text-5xl font-bold text-gray-900 font-heading">$${product.price.toFixed(2)}</span>
+                    <span class="text-xl text-gray-400 line-through font-body">$${product.originalPrice.toFixed(2)}</span>
+                </div>
+
+                <p class="text-gray-700 leading-relaxed font-body">${product.description}</p>
+
+                <ul class="list-none space-y-3 text-gray-600 pt-2 font-body">
+                    ${featuresHtml}
+                </ul>
+            `;
+            
+            // 3. Update UI state (selector cards and cart button)
+            renderProductSelector(); // Re-render to highlight the selected card
+            
+            addToCartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            addToCartBtn.disabled = false;
+            addToCartBtn.textContent = 'Add to Cart';
+            addToCartBtn.classList.remove('bg-green-500', 'hover:bg-green-600', 'ring-2', 'ring-green-300'); // Reset potential success styles
+            addToCartBtn.classList.add('bg-primary', 'hover:bg-blue-700'); // Ensure default styles
+        }
+
+        /**
+         * Handles the gender filter click event.
+         * @param {string} filterValue - The gender filter value ('All', 'Men', 'Women').
+         */
+        function handleGenderFilter(filterValue) {
+            selectedGender = filterValue;
+            
+            // Update button styles
+            filterButtons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.filter === filterValue) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Re-render product selector with new filter
+            renderProductSelector();
+            
+            // Auto-select the first product of the new filter if one exists
+            const firstProduct = products.find(p => selectedGender === 'All' || p.gender === selectedGender);
+            if (firstProduct && selectedProductId !== firstProduct.id) {
+                 selectProduct(firstProduct.id);
+            } else if (!firstProduct) {
+                 // Clear view if no products match
+                 selectedProductId = null;
+                 productDetails.innerHTML = `<h1 class="text-3xl font-bold text-gray-900 font-heading">No Products Available</h1><p class="text-gray-500 font-body">Please adjust your gender filter.</p>`;
+                 productModel.src = '';
+                 addToCartBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                 addToCartBtn.disabled = true;
+            } else {
+                 // If the currently selected product is still valid, just re-render the selector
+                 renderProductSelector();
+            }
+        }
+        
+        /**
+         * Hides the home page and reveals the main application content.
+         */
+        function startMainApplication() {
+            // Hide home page
+            homePage.style.opacity = 0;
+            
+            setTimeout(() => {
+                homePage.style.display = 'none';
+                
+                // Show main app content
+                mainAppContainer.style.display = 'block';
+                // Trigger the fade-in
+                setTimeout(() => {
+                    mainAppContainer.style.opacity = 1;
+                }, 10); 
+
+                // Execute the app's initial logic
+                updateCartCount();
+                handleGenderFilter('All');
+            }, 500); // Wait for fade-out transition (0.5s)
+        }
+
+        /**
+         * Initializes the page flow: Loading -> Home -> Main App.
+         */
+        function initializePageFlow() {
+            // 1. Show Loading Page first (it's visible by default)
+            
+            // 2. After a delay, fade out loading and fade in home
+            setTimeout(() => {
+                // Fade out loading page
+                loadingPage.style.opacity = 0;
+                
+                setTimeout(() => {
+                    loadingPage.style.display = 'none';
+                    // Show home page
+                    homePage.style.display = 'flex';
+                    // Trigger the fade-in
+                    setTimeout(() => {
+                        homePage.style.opacity = 1;
+                    }, 10); 
+                }, 500); // Wait for fade-out transition (0.5s)
+            }, 3000); // Show loader for 3 seconds
+        }
+        
+        // --- EVENT LISTENERS AND INITIALIZATION ---
+        
+        // Add listeners for the gender filter buttons
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => handleGenderFilter(btn.dataset.filter));
+        });
+
+        // Add functional event listener for the cart button
+        addToCartBtn.addEventListener('click', () => {
+             if (selectedProductId) {
+                const product = products.find(p => p.id === selectedProductId);
+                if (product) {
+                    // 1. Increment the cart count
+                    cartCount++;
+                    updateCartCount();
+
+                    // 2. Provide visual feedback
+                    addToCartBtn.textContent = `Added ${product.name}!`;
+                    addToCartBtn.classList.add('bg-green-500', 'hover:bg-green-600', 'ring-2', 'ring-green-300');
+                    addToCartBtn.classList.remove('bg-primary', 'hover:bg-blue-700');
+
+                    setTimeout(() => {
+                        addToCartBtn.textContent = 'Add to Cart';
+                        addToCartBtn.classList.remove('bg-green-500', 'hover:bg-green-600', 'ring-2', 'ring-green-300');
+                        addToCartBtn.classList.add('bg-primary', 'hover:bg-blue-700');
+                    }, 1500);
+                }
+             }
+        });
+
+        // New event listener for the Start Shopping button
+        startShoppingBtn.addEventListener('click', startMainApplication);
+
+        // Initial setup: start the page flow (replaces old DOMContentLoaded)
+        document.addEventListener('DOMContentLoaded', initializePageFlow);
+    </script>
+
+</body>
+</html>
