@@ -280,8 +280,10 @@
                             auto-rotate
                             ar
                             ar-modes="webxr scene-viewer quick-look"
-                            ar-placement="floor"  <!-- Added for better Android AR functionality -->
-                            ar-scale="auto"     <!-- Added for better real-world sizing -->
+                            ar-placement="floor"  
+                            ar-scale="auto"     
+                            camera-target="0m 1.2m 0m"  <!-- NEW: Target the center of a person's height -->
+                            camera-orbit="90deg 90deg auto" <!-- NEW: Set initial camera orbit for better scene detection -->
                             class="rounded-lg"
                         >
                             <button slot="ar-button" id="ar-button" class="font-body">
@@ -421,7 +423,7 @@
             
             // 1. Update the 3D Model Viewer
             productModel.src = product.modelUrl;
-            // Set the iOS-specific USDZ source for Quick Look AR (still needed for cross-browser AR modes)
+            // Set the iOS-specific USDZ source for Quick Look AR (still useful for other AR modes)
             productModel.setAttribute('ios-src', product.modelUsdzUrl);
             
             productModel.alt = `A 3D model of the ${product.name}.`;
